@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane id="FlowPane" prefHeight="600" prefWidth="800" xmlns:fx="http://javafx.com/fxml" fx:controller="apiexplorer.mainController">
+    <top>
+        <ToolBar >
+            <items>
+                <Button fx:id="btnBack" onAction="#handleBtnBackAction" text="后退"/>
+                <Button fx:id="btnForward" onAction="#handleBtnForwardAction" text="前进" />
+                <Label text="页面搜索" />
+                <TextField/>
+                <Button text="搜索" ></Button>
+            </items>
+        </ToolBar>
+    </top>
+    <center>
+        <SplitPane fx:id="splitPane" orientation="HORIZONTAL" dividerPositions="0.25" >
+            <items>
+                <TabPane tabClosingPolicy="UNAVAILABLE" >
+                    <tabs>
+                        <Tab text="目录" >
+                            <TreeView fx:id="treeView" onMouseClicked="#handleTreeViewAction" editable="false" >
+                                <root>
+                                    <apiexplorer.util.TreeItemEx fx:id="treeRoot">
+                                        <value>api</value>
+                                    </apiexplorer.util.TreeItemEx>
+                                </root>
+                                <showRoot>false</showRoot>
+                            </TreeView>
+                        </Tab>
+                        <Tab text="索引">
+                            <BorderPane >
+                                <top>
+                                    <TextField fx:id="txtSearch" onKeyReleased="#handleTxtSearchKeyAction" >
+                                        <BorderPane.margin>
+                                            <javafx.geometry.Insets left="1" right="1" top="5" bottom="5"/>
+                                        </BorderPane.margin>
+                                    </TextField>
+                                </top>
+                                <center>
+                                    <ListView fx:id="listSearch" onKeyReleased="#handleListViewKeyAction" onMouseClicked="#handleListViewMouseAction" >
+                                        <BorderPane.margin>
+                                            <javafx.geometry.Insets left="1" right="1" />
+                                        </BorderPane.margin>
+                                    </ListView>
+                                </center>
+                            </BorderPane>
+                        </Tab> 
+                    </tabs>
+                </TabPane>
+                <javafx.scene.web.WebView fx:id="webView" />
+            </items>
+        </SplitPane> 
+    </center>
+</BorderPane>
