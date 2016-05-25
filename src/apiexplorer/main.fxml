@@ -10,6 +10,7 @@
     <top>
         <ToolBar >
             <items>
+                <Button fx:id="btnOpen" onAction="#handlerBtnOpenAction" text="打开文件"/>
                 <Button fx:id="btnBack" onAction="#handleBtnBackAction" text="后退"/>
                 <Button fx:id="btnForward" onAction="#handleBtnForwardAction" text="前进" />
                 <Label text="页面搜索" />

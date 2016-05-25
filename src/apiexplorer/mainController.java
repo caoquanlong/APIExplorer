@@ -1,37 +1,28 @@
 package apiexplorer;
 
+import apiexplorer.util.IOUtils;
 import apiexplorer.util.TreeItemEx;
-import java.io.File;
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.ResourceBundle;
-import java.util.Set;
-import java.util.jar.JarFile;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.zip.ZipEntry;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.scene.control.Button;
-import javafx.scene.control.ListView;
-import javafx.scene.control.SelectionMode;
-import javafx.scene.control.TextField;
-import javafx.scene.control.TreeView;
+import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebHistory;
 import javafx.scene.web.WebView;
+import javafx.stage.FileChooser;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.util.*;
+import java.util.zip.ZipFile;
 
 /**
  *
@@ -43,6 +34,7 @@ public class mainController implements Initializable {
     private ObservableList<String> searchList;
     private WebEngine webEngine;
     private WebHistory webHistory;
+    private File apiRootDir = new File("./api");
     
     @FXML
     private TreeView treeView;
@@ -54,6 +46,8 @@ public class mainController implements Initializable {
     private TextField txtSearch;
     @FXML
     private ListView listSearch;
+    @FXML
+    private Button btnOpen;
     @FXML
     private Button btnBack;
     @FXML
@@ -67,55 +61,96 @@ public class mainController implements Initializable {
         webEngine = webView.getEngine();
         webHistory = webEngine.getHistory();
         webHistory.setMaxSize(10);
-        webEngine.load(this.getClass().getResource("/api/index.html").toString());
+//        webEngine.load(this.getClass().getResource("/api/index.html").toString());
         treeView.getSelectionModel().setSelectionMode(SelectionMode.SINGLE);
         Map<String, TreeItemEx> map = new HashMap<>();
         map.put("/", treeRoot);
-        try {
-            JarFile zip = new JarFile(new File(this.getClass().getProtectionDomain().getCodeSource().getLocation().toURI()));
-            Enumeration<? extends ZipEntry> entries = zip.entries();
-            while (entries.hasMoreElements()) {
-                ZipEntry next = entries.nextElement();
-                String path = "/" + next.getName();
-                if (path.indexOf("/api/") == -1) {
-                    continue;
+        apiRootDir.mkdir();
+        initTree(apiRootDir);
+    }
+
+    private void initTree(File rootDir) {
+        File[] files = rootDir.listFiles();
+        treeRoot.getChildren().clear();
+        buildTreeItem(treeRoot, files);
+    }
+
+    private void buildTreeItem(TreeItemEx parentItem, File[] files) {
+        for (File f : files) {
+            if (f.isDirectory()) {
+                String name = f.getName();
+                String path = f.getAbsolutePath();
+                TreeItemEx nextItem = new TreeItemEx(name, path, true);
+                parentItem.getChildren().add(nextItem);
+                File[] f1 = f.listFiles();
+                buildTreeItem(nextItem, f1);
+            } else {
+                String name = f.getName();
+                int pos = name.lastIndexOf('.');
+                if (pos != -1) {
+                    name = name.substring(0, pos);
                 }
-                if (next.isDirectory()) {
-                    String prePath = path.substring(0, path.lastIndexOf("/", path.lastIndexOf("/") - 1) + 1);
-                    String tmp = path.substring(0, path.lastIndexOf("/"));
-                    String name = tmp.substring(tmp.lastIndexOf("/") + 1);
-                    TreeItemEx item = map.get(prePath);
-                    TreeItemEx nextItem = new TreeItemEx(name, path, true);
-                    item.getChildren().add(nextItem);
-                    map.put(path, nextItem);
-                } else {
-                    String prePath = path.substring(0, path.lastIndexOf("/") + 1);
-                    String name = path.substring(path.lastIndexOf("/") + 1);
-                    TreeItemEx item = map.get(prePath);
-                    if (name.lastIndexOf(".html") != -1) {
-                        name = name.substring(0, name.lastIndexOf(".html"));
-                    }
-                    TreeItemEx nextItem = new TreeItemEx(name, path, false);
-                    item.getChildren().add(nextItem);
-                    map.put(path, nextItem);
-                    if (!path.contains("class-use") && path.contains(".html")) {
-                        searchSet.add(path.substring(0, path.lastIndexOf(".html")));
-                    }
-                }
+                searchSet.add(name);
+                String path = f.getAbsolutePath();
+                TreeItemEx nextItem = new TreeItemEx(name, path, false);
+                parentItem.getChildren().add(nextItem);
             }
-        } catch (URISyntaxException | IOException ex) {
-            Logger.getLogger(mainController.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
+
+    @FXML
+    private void handlerBtnOpenAction(ActionEvent event) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("选择文件");
+        File file = fileChooser.showOpenDialog(null);
+        if (file == null) return;
+        File curJarApiRoot = new File(apiRootDir, file.getName());
+        try {
+            ZipFile zipFile = new ZipFile(file);
+            zipFile.stream().forEach(zipEntity -> {
+                FileWriter writer = null;
+                try {
+                    if (zipEntity.isDirectory()) {
+                        File p = new File(curJarApiRoot, zipEntity.getName());
+                        p.mkdirs();
+                    } else {
+                        String name = zipEntity.getName();
+                        File f = new File(curJarApiRoot, name);
+                        InputStream in = zipFile.getInputStream(zipEntity);
+                        String text = IOUtils.toString(in, "UTF-8");
+                        writer = new FileWriter(f);
+                        writer.write(text);
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                } finally {
+                    if (writer != null) {
+                        try {
+                            writer.flush();
+                            writer.close();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            });
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        initTree(apiRootDir);
     }
     
     @FXML
     private void handleTreeViewAction(MouseEvent event) throws IOException {
         TreeItemEx item = (TreeItemEx)treeView.getSelectionModel().getSelectedItem();
+        if (item == null) return;
         if (item.isDir()) {
-            item.setExpanded(true);
+//            item.setExpanded(true);
         } else {
             String path = item.getPath();
-            webEngine.load(this.getClass().getResource(path).toString());
+            File file = new File(path);
+            String url = file.toURI().toURL().toString();
+            webEngine.load(url);
         }
     }
     
